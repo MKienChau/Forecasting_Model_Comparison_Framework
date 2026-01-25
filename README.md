@@ -7,20 +7,29 @@ Multi-model forecasting system with automated validation and selection logic. Co
 ==========================================================
 
 Purpose:
-This framework demonstrates a systematic approach to model selection by comparing three forecasting methodologies across multiple business dimensions. Rather than defaulting to a single forecasting technique, the system evaluates model performance at the State and ProductType level using backtested validation metrics (MAPE/RMSE), then recommends the optimal model for each segment.
+This framework demonstrates a systematic approach to model selection by comparing three forecasting methodologies across multiple business dimensions. Rather than defaulting to a single forecasting technique, the system evaluates model performance at the State and Product(Golf Clubs) level using backtested validation metrics (MAPE/RMSE), then recommends the optimal model for each segment.
 
 Forecasting Methodologies (3):
+
   1. Regression
   2. Rules-based
   3. Simple Moving Average (SMA)
 
 Dimensions (4):
-  1. Product Type (4)
-  2. States (50)
-  3. Months (12)
-  4. Years (2020-2023)
+
+  1. Years (2020-2023)
+  2. Clubs (4,Driver,Fairway,Hybrids,Irons)
+  3. Top 26 Weeks by Netsales
+  4. Top Markets (States (62, US=50, CA=12) must Qualify in at least 1 of the following)
+    A. Sales + (Margin% gate=rank middle half+ in Margin% overall):
+    - 1st of Division, Top Quartile of Region/Overall for Sales
+    B. Volume + (Margin$ gate=rank middle half+ in Margin$ overall):
+    - 1st of Division, Top Quartile of Region/Overall for Units Sold
+    C. Profit + (Volume gate=rank middle half+ in Units overall)
+    - 1st of Division, Top Quartile of Region/Overall for EITHER Margin$ or Margin%
 
 Forecasted 2024 MAPE Evaluation vs Actual 2024:
+
   1. Regression MAPE (REG%Δ) = Absolute% difference between Regression Forecast and Actual
   2. Rules-Based MAPE (RBD%Δ) = Absolute% difference between Rules-based Forecast and Actual
   3. SMA MAPE (SMA%Δ) = Absolute% difference between SMA Forecast and Actual
@@ -36,12 +45,7 @@ Forecasting Models (In Depth)
 
 ==========================================================
 
-1. Regression Model: Trained on Years (2020-2023)   
-    Train on 2020-2023→Generate 2024 forecasts→Calculate MAPE by State+Product
-    12 months × 4 years(2020-2023) × 50 states x 4 ProductTypes= 9,600 obs
-    X matrix: 9,600 obs × 65 columns (1 intercept + 11 months + 1 year + 49 states + 3 ProductType dummies)
-    9,600 ÷ 65 = 147.7 observations per coefficient
-
+1. Regression Model: Trained on Years (2020-2023)
     Intercept (β₀):
     - β₀ = Baseline (December 2020, baseline State, baseline ProductType)
 
@@ -63,50 +67,55 @@ Forecasting Models (In Depth)
     Regression Forecast 2024 (REG_f2024):
     - REG_f2024 = β₀ + β_Month + (β_Year × YS) + β_State + β_ProductType
 
-3. Rules-Based: Trained on Years (2020-2023)
-
+2. Rules-Based: Trained on Years (2020-2023)
     Compound Annual Growth Rate (CAGR_20-23):
     - CAGR_20-23 = 1 + CAGR(2020-2023)
 
     Actual Sales 2023 (AS_2023):
-    - AS_2023 = Actual Sales for Selected[Month 2023, State, ProductType]
+    - AS_2023 = Selected Week's Actual sales in 2023
 
-    Month Delta(MΔ):
-    - MΔ = Selected Month Avg Sales - Average of all months
+    Week Delta(MΔ):
+    - MΔ = Selected Week's AvgSales(2020-2023) - AvgSales(2020-2023) of all Weeks
 
     State Delta (SΔ):
-    - SΔ = Avg Monthly Sales Selected State - Avg Monthly Sales All States
+    - SΔ = AvgSales(2020-2023) all Weeks for Selected State -AvgSales(2020-2023) of all States
 
-    ProductType Delta (PΔ):
-    - PΔ = Avg Monthly Sales Selected Product Type  - Avg Monthly Sales All Product Types
+    Club Delta (PΔ):
+    - PΔ = AvgSales(2020-2023) all Weeks for Selected Club  - AvgSales(2020-2023) of all Clubs
 
-    Rules-Based Forecast 2024 (RBD_f2024) = (AS_2023 + MΔ + SΔ + PΔ) × CAGR_20-23
+    Rules-Based Forecast 2024 (RBD_f2024):
+    - RBD_f2024= (AS_2023 + MΔ + SΔ + PΔ)*CAGR_20-23
 
-4. SMA: Trained on Years (2020-2023)
+3. SMA: Trained on Years (2020-2023)
 
     SMA Forecast 2024 (SMA_f2024):
-    - SMA_f2024 = AVG(Selected Month [Jan,Feb..Dec][2020-2023]) for Selected State and ProductType
+    - SMA_f2024 = Selected Week's AvgSales(2020-2023) for Selected State and ProductType
 
 ==========================================================
 
 Forecasted 2024 MAPE Evaluation vs Actual 2024 (In Depth)
 
 ==========================================================
-  
+
 Actual Sales 2024 (AS_2024):
-- AS_2024 = Actual Sales for Selected Month 2024, State, and ProductType
+
+  - AS_2024 = Selected Week's Actual sales in 2024
 
 Regression MAPE (REG%Δ):
-- REG%Δ = ABS(REG_f2024-AS_2024)/AS_2024
+
+  - REG%Δ = ABS(REG_f2024-AS_2024)/AS_2024
 
 Rules-Based MAPE (RBD%Δ):
-- RBD%Δ = ABS(RBD_f2024-AS_2024)/AS_2024
+
+  - RBD%Δ = ABS(RBD_f2024-AS_2024)/AS_2024
 
 SMA MAPE (SMA%Δ):
-- SMA%Δ = ABS(SMA_f2024-AS_2024)/AS_2024
+  
+  - SMA%Δ = ABS(SMA_f2024-AS_2024)/AS_2024
 
 Optimal Model Result (OMR):
-- OMR = Model with Lowest MAPE
+  
+  - OMR = Model with Lowest MAPE
 
 ==========================================================
 
@@ -117,17 +126,10 @@ Optimal Model Result (OMR):
 After identifying the optimal model per segment using 2024 validation:
 
 1. Regression Model: Retrained on Years (2020-2024)
-   - 12,000 observations (12 months × 5 years × 50 states × 4 ProductTypes)
-   - Generates forecasts for Jan-Dec 2025
 
 2. Rules-Based: Retrained on Years (2020-2024)
-   - AS_2024 replaces AS_2023
-   - Deltas recalculated using 2020-2024 averages
-   - CAGR recalculated across 2020-2024
 
 3. SMA: Retrained on Years (2020-2024)
-   - SMA Forecast 2025 = AVG(SM[2021, 2022, 2023, 2024])
-   - Maintains 4-year rolling window
 
 4. Power BI Implementation:
    - Displays all three model forecasts for 2025
